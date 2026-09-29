@@ -1,0 +1,962 @@
+{
+  "name": "ABCD Real Estate",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "tally-lead",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1088,
+        -960
+      ],
+      "id": "808d72f0-69f2-4d8c-8a8e-397f707cff20",
+      "name": "Webhook",
+      "webhookId": "ae811cbd-70ad-41eb-8d63-44c38f5b3a72"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "27f579ff-297d-4d10-ad7d-c312d67197e8",
+              "name": "body.data.fields",
+              "value": "={{ $json.body.data.fields }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -864,
+        -960
+      ],
+      "id": "911c49c3-38f3-401f-8529-363894c6b9f0",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "fields = _items[0][\"json\"][\"body\"][\"data\"][\"fields\"]\n\nresult = {}\n\nfor field in fields:\n    value = field.get(\"value\")\n\n    # Convert multiple-choice IDs to their text\n    if field.get(\"options\") and isinstance(value, list):\n        converted_values = []\n\n        for selected_id in value:\n            option = next(\n                (\n                    opt\n                    for opt in field[\"options\"]\n                    if opt[\"id\"] == selected_id\n                ),\n                None\n            )\n\n            if option:\n                converted_values.append(option[\"text\"])\n            else:\n                converted_values.append(selected_id)\n\n        if len(converted_values) == 1:\n            value = converted_values[0]\n        else:\n            value = converted_values\n\n    result[field[\"label\"]] = value\n\n\n# ==========================================\n# LEAD SCORING\n# ==========================================\n\nscore = 0\n\n\n# Property Type\nproperty_type = result.get(\"Property Type\")\n\nproperty_scores = {\n    \"Apartment\": 10,\n    \"Villa\": 15,\n    \"Commercial\": 10\n}\n\nscore += property_scores.get(property_type, 0)\n\n\n# Buy or Rent\nbuy_rent = result.get(\"Buy or Rent\")\n\nbuy_rent_scores = {\n    \"Buy\": 15,\n    \"Rent\": 5\n}\n\nscore += buy_rent_scores.get(buy_rent, 0)\n\n\n# New or Resale\nnew_resale = result.get(\"New or Resale \")\n\nnew_resale_scores = {\n    \"New\": 10,\n    \"Resale\": 10\n}\n\nscore += new_resale_scores.get(new_resale, 0)\n\n\n# First Property Purchase\nfirst_purchase = result.get(\"Frist Property Purchase \")\n\nfirst_purchase_scores = {\n    \"Yes\": 5,\n    \"No\": 10\n}\n\nscore += first_purchase_scores.get(first_purchase, 0)\n\n\n# Timeline\ntimeline = result.get(\"Timeline\")\n\ntimeline_scores = {\n    \"Immediately\": 20,\n    \"Within 1 month\": 15,\n    \"1-3 months\": 10,\n    \"3-6 months\": 5,\n    \"+6 months\": 0\n}\n\nscore += timeline_scores.get(timeline, 0)\n\n\n# Budget Range\nbudget = result.get(\"Budget Range\")\n\nbudget_scores = {\n    \"Above 1.000.000\": 20,\n    \"700.000$ - 1.000.000$\": 15,\n    \"400.000 - 700.000\": 10,\n    \"400.000 - 200.000\": 5,\n    \"Below 200.000\": 0\n}\n\nscore += budget_scores.get(budget, 0)\n\n\n# Add final score to output\nresult[\"Lead Score\"] = score\n\n\nreturn [{\"json\": result}]"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        -960
+      ],
+      "id": "2dcee4d3-435b-4499-9b6a-bebd13702358",
+      "name": "Code in Python"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json[\"Lead Score\"] }}",
+                    "rightValue": 75,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gte"
+                    },
+                    "id": "d7dab5e5-675a-437a-9774-81b9b02bd093"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Hight"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "03eb3021-9a50-478d-bdf0-dbb84423e125",
+                    "leftValue": "={{ $json[\"Lead Score\"] }}",
+                    "rightValue": 50,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gte"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Medium"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0d496b4a-b889-4ee0-b2f6-e4123562ddb7",
+                    "leftValue": "={{ $json[\"Lead Score\"] }}",
+                    "rightValue": 50,
+                    "operator": {
+                      "type": "number",
+                      "operation": "lt"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Low"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -416,
+        -976
+      ],
+      "id": "3dfa859f-ce6a-4a94-9264-1fff730def2c",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Code in Python').item.json[\"What is Your mail?\"] }}",
+        "subject": "Thank You for Your Inquiry",
+        "message": "=Dear {{ $('Code in Python').item.json[\"What is your name?\"] }},\n\nThank you for taking the time to fill out our property inquiry form.\n\nWe’ve received your information, and one of our team members will contact you **very soon** to discuss your requirements and help you find the right property.\n\nWe look forward to speaking with you.\n\nBest regards,\nABCD Real Estate Team\n",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        832,
+        -1696
+      ],
+      "id": "762eb7d3-2c88-451a-a34d-5900b1867313",
+      "name": "Send a message",
+      "webhookId": "c6573d83-7dfe-47dd-bbd2-947da0d9d597",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ssiY9pF7vhYGJxQC",
+          "name": "ABCD Real Estate"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "5631742034",
+        "text": "=Important Ticket\nfrom {{ $('Edit Fields').item.json.body.data.fields[0].value }}\nand phone {{ $('Edit Fields').item.json.body.data.fields[2].value }}\nand mail {{ $('Edit Fields').item.json.body.data.fields[1].value }}\nand has score : {{ $json[\"Lead Score\"] }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        816,
+        -1488
+      ],
+      "id": "1aad1a40-29c7-4980-85ba-196c69b83ce4",
+      "name": "Send a text message",
+      "webhookId": "b98e2a5f-b8ea-4a68-8adf-6e462c859dcd",
+      "credentials": {
+        "telegramApi": {
+          "id": "wneIQsulIV7O3sJk",
+          "name": "ABCD Real Estate"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json[\"What is Your mail?\"] }}",
+        "subject": "Thank You for Your Inquiry",
+        "emailType": "text",
+        "message": "=Dear {{ $json[\"What is your name?\"] }} ,\n\nThank you for taking the time to fill out our property inquiry form.\n\nWe’ve received your information, and one of our team members will contact you **very soon** to discuss your requirements and help you find the right property.\n\nWe look forward to speaking with you.\n\nBest regards,\nABCD Real Estate Team\n",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        576,
+        -976
+      ],
+      "id": "9586bf3d-5c97-4f0f-acc1-a1e25a7ae1a3",
+      "name": "Send a message1",
+      "webhookId": "431eaba5-fee3-47e7-852d-26d61daf136c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ssiY9pF7vhYGJxQC",
+          "name": "ABCD Real Estate"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json[\"What is Your mail?\"] }}",
+        "subject": "Thank You for Your Inquiry",
+        "emailType": "text",
+        "message": "=Dear {{ $json[\"What is your name?\"] }},\n\nThank you for taking the time to fill out our property inquiry form.\n\nWe’ve received your information, and one of our team members will contact you **soon** to discuss your requirements and help you find the right property.\n\nWe look forward to speaking with you.\n\nBest regards,\nABCD Real Estate Team\n",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        752,
+        -464
+      ],
+      "id": "18ad1526-1ae7-4b9c-877c-73c803294811",
+      "name": "Send a message2",
+      "webhookId": "95a44091-05f8-4f33-badb-c7f4dead03c1",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ssiY9pF7vhYGJxQC",
+          "name": "ABCD Real Estate"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1ETBMnOOd8iDv2Qg3WAkHe4g5tK72JDDDQM_8pLmqa1g",
+          "mode": "list",
+          "cachedResultName": "Lead Qualification",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ETBMnOOd8iDv2Qg3WAkHe4g5tK72JDDDQM_8pLmqa1g/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Height",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ETBMnOOd8iDv2Qg3WAkHe4g5tK72JDDDQM_8pLmqa1g/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{ $json['What is Your Phone\"WhatsApp\"?'] }}",
+            "name": "={{ $json[\"What is your name?\"] }}",
+            "mail": "={{ $json[\"What is Your mail?\"] }}",
+            "property type": "={{ $json[\"Property Type\"] }}",
+            "buy or rent": "={{ $json[\"Buy or Rent\"] }}",
+            "is first property purchase ?": "={{ $json[\"Frist Property Purchase \"] }}",
+            "timeline": "={{ $json.Timeline }}",
+            "budget range": "={{ $json[\"Budget Range\"] }}",
+            "comment": "={{ $json[\"Give us Any Additional Information\"] }}",
+            "status": "Hight",
+            "score": "={{ $json[\"Lead Score\"] }}",
+            "new or resale": "={{ $json[\"New or Resale \"] }}"
+          },
+          "matchingColumns": [
+            "phone"
+          ],
+          "schema": [
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "mail",
+              "displayName": "mail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "property type",
+              "displayName": "property type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "buy or rent",
+              "displayName": "buy or rent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "new or resale",
+              "displayName": "new or resale",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "is first property purchase ?",
+              "displayName": "is first property purchase ?",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "timeline",
+              "displayName": "timeline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "budget range",
+              "displayName": "budget range",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "comment",
+              "displayName": "comment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "score",
+              "displayName": "score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        832,
+        -1280
+      ],
+      "id": "81d4b9a7-2281-4bf2-98ec-b3e12f1d0464",
+      "name": "Append or update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "z8ZGkHR1ssRv5T3w",
+          "name": "spicy chicken"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1ETBMnOOd8iDv2Qg3WAkHe4g5tK72JDDDQM_8pLmqa1g",
+          "mode": "list",
+          "cachedResultName": "Lead Qualification",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ETBMnOOd8iDv2Qg3WAkHe4g5tK72JDDDQM_8pLmqa1g/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1470794080,
+          "mode": "list",
+          "cachedResultName": "medium",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ETBMnOOd8iDv2Qg3WAkHe4g5tK72JDDDQM_8pLmqa1g/edit#gid=1470794080"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "medium",
+            "phone": "={{ $json['What is Your Phone\"WhatsApp\"?'] }}",
+            "name": "={{ $json[\"What is your name?\"] }}",
+            "mail": "={{ $json[\"What is Your mail?\"] }}",
+            "property type": "={{ $json[\"Property Type\"] }}",
+            "buy or rent": "={{ $json[\"Buy or Rent\"] }}",
+            "is first property purchase ?": "={{ $json[\"Frist Property Purchase \"] }}",
+            "timeline": "={{ $json.Timeline }}",
+            "budget range": "={{ $json[\"Budget Range\"] }}",
+            "comment": "={{ $json[\"Give us Any Additional Information\"] }}",
+            "score": "={{ $json[\"Lead Score\"] }}",
+            "new or resale": "={{ $json[\"New or Resale \"] }}"
+          },
+          "matchingColumns": [
+            "phone"
+          ],
+          "schema": [
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "mail",
+              "displayName": "mail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "property type",
+              "displayName": "property type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "buy or rent",
+              "displayName": "buy or rent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "new or resale",
+              "displayName": "new or resale",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "is first property purchase ?",
+              "displayName": "is first property purchase ?",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "timeline",
+              "displayName": "timeline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "budget range",
+              "displayName": "budget range",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "comment",
+              "displayName": "comment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "score",
+              "displayName": "score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        576,
+        -800
+      ],
+      "id": "87f4d04b-c44c-4eb1-92b6-3ef170a10ba9",
+      "name": "Append or update row in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "z8ZGkHR1ssRv5T3w",
+          "name": "spicy chicken"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1ETBMnOOd8iDv2Qg3WAkHe4g5tK72JDDDQM_8pLmqa1g",
+          "mode": "list",
+          "cachedResultName": "Lead Qualification",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ETBMnOOd8iDv2Qg3WAkHe4g5tK72JDDDQM_8pLmqa1g/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 417542600,
+          "mode": "list",
+          "cachedResultName": "low",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ETBMnOOd8iDv2Qg3WAkHe4g5tK72JDDDQM_8pLmqa1g/edit#gid=417542600"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{ $json['What is Your Phone\"WhatsApp\"?'] }}",
+            "name": "={{ $json[\"What is your name?\"] }}",
+            "mail": "={{ $json[\"What is Your mail?\"] }}",
+            "property type": "={{ $json[\"Property Type\"] }}",
+            "buy or rent": "={{ $json[\"Buy or Rent\"] }}",
+            "is first property purchase ?": "={{ $json[\"Frist Property Purchase \"] }}",
+            "timeline": "={{ \"'\" + String($json[\"Timeline\"]) }}",
+            "budget range": "={{ $json[\"Budget Range\"] }}",
+            "comment": "={{ $json[\"Give us Any Additional Information\"] }}",
+            "status": "low",
+            "score": "={{ $json[\"Lead Score\"] }}"
+          },
+          "matchingColumns": [
+            "phone"
+          ],
+          "schema": [
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "mail",
+              "displayName": "mail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "property type",
+              "displayName": "property type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "buy or rent",
+              "displayName": "buy or rent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "is first property purchase ?",
+              "displayName": "is first property purchase ?",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "timeline",
+              "displayName": "timeline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "budget range",
+              "displayName": "budget range",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "comment",
+              "displayName": "comment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "score",
+              "displayName": "score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        720,
+        -208
+      ],
+      "id": "c6bd1c0d-9977-4165-b12f-f2f81bfc7d99",
+      "name": "Append or update row in sheet2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "z8ZGkHR1ssRv5T3w",
+          "name": "spicy chicken"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "This webhook recive content form from taily \nand then workflow run",
+        "height": 384,
+        "width": 336
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1264,
+        -1184
+      ],
+      "typeVersion": 1,
+      "id": "1ade517e-ad2d-4c7c-91f3-5508ae3953e8",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "this node to extract and simplify the needed data",
+        "height": 384,
+        "width": 192,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -912,
+        -1184
+      ],
+      "id": "f04e4852-50b2-4e02-b2e4-530b6c323546",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "This node to extract and reformate the needed data \nand sum the score for the client",
+        "height": 384,
+        "width": 192,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -688,
+        -1184
+      ],
+      "id": "e3a93090-556e-444a-9166-72a208a45211",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "This switch to determine the suitable action depend on score of customer \n- if score >= 75 this is height \n- if score >= 50 this is medium \n- if score < 50 this is low",
+        "height": 384,
+        "width": 288,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -448,
+        -1200
+      ],
+      "id": "fda23418-11df-487f-9ec9-1452cb602847",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "\nwhen height \n- send mail for this customer \n- send for my support team message contains name and phone for client to chat with cutomer \n- append the data in sheet \n- put the status height ",
+        "height": 208,
+        "width": 320,
+        "color": "#D51515"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        112,
+        -1600
+      ],
+      "id": "e28f01e1-4971-4e31-a37d-83d1ec4d6a4c",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "when medium \n- send mail for client \n- append in sheet\n- put status medium ",
+        "color": "#1C8415"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        800,
+        -928
+      ],
+      "id": "aaab7e42-cce8-431a-814c-e9c6596c2850",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "content": "when low\n- send mail for client \n- append in sheet\n- put in status low",
+        "color": "#186867"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        64,
+        -432
+      ],
+      "id": "ff1d06ac-51a2-4bdb-a67e-ad84847d2692",
+      "name": "Sticky Note6"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Code in Python",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in Python": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Append or update row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Append or update row in sheet2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "84d73212-75a7-472e-9f01-9d339f09cd5a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "68024762133c6abfc89942e6337decdccca1dae8c5e155c76f775995dc491cae"
+  },
+  "nodeGroups": [],
+  "id": "kBENpC7eAFzpqdR1",
+  "tags": []
+}
